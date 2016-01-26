@@ -1,0 +1,6 @@
+[package]
+name = "http-sandbox"
+version = "0.1.0"
+authors = ["Kevin Bacha <chewbacha@gmail.com>"]
+
+[dependencies]
