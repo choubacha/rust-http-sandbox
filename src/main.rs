@@ -4,12 +4,17 @@ extern crate iron;
 extern crate router;
 
 use iron::prelude::*;
+use router::Router;
 
 mod controllers;
 mod routes;
 
 fn main() {
-    let router = routes::load_router();
+    start_server(routes::load_router());
+}
 
-    Iron::new(router).http("0.0.0.0:3000").unwrap();
+fn start_server(router: Router) {
+    Iron::new(router)
+        .http("0.0.0.0:3000")
+        .unwrap();
 }
