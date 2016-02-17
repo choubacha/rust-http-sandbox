@@ -3,6 +3,8 @@ extern crate iron;
 #[macro_use(router)]
 extern crate router;
 
+extern crate rustc_serialize;
+
 use iron::prelude::*;
 use router::Router;
 
