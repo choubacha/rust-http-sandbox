@@ -1,7 +1,3 @@
-extern crate iron;
-extern crate router;
-extern crate rustc_serialize;
-
 use rustc_serialize::json;
 use iron::prelude::*;
 use std::io::Read;

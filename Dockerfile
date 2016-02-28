@@ -23,4 +23,4 @@ COPY . /myapp
 RUN cargo build
 EXPOSE 3000
 
-ENTRYPOINT ["target/debug/http-sandbox"]
+ENTRYPOINT ["cargo", "run"]

@@ -7,3 +7,7 @@ authors = ["Kevin Bacha <chewbacha@gmail.com>"]
 iron = "0.2.6"
 router = "*"
 rustc-serialize = "0.3"
+postgres = "0.11"
+persistent = "0.0.9"
+r2d2 = "0.6"
+r2d2_postgres = "0.10"
