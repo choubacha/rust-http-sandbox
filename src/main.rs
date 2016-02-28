@@ -1,22 +1,7 @@
-extern crate iron;
-
-#[macro_use(router)]
-extern crate router;
-
-extern crate rustc_serialize;
-
-use iron::prelude::*;
-use router::Router;
-
-mod controllers;
-mod routes;
+extern crate http_sandbox;
+use http_sandbox::start_server;
+use http_sandbox::routes::load_router;
 
 fn main() {
-    start_server(routes::load_router());
-}
-
-fn start_server(router: Router) {
-    Iron::new(router)
-        .http("0.0.0.0:3000")
-        .unwrap();
+    http_sandbox::start_server(http_sandbox::routes::load_router());
 }

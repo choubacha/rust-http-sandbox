@@ -27,7 +27,7 @@ pub fn parse(req: &mut Request) -> IronResult<Response> {
 }
 
 fn success(body: HelloWorld) -> IronResult<Response> {
-    Ok(Response::with((status::Ok, format!("You said: {}", body.hello))))
+    Ok(Response::with((status::Ok, format!("You said: {}, to world number: {}", body.hello, body.world))))
 }
 
 fn fail(body: String) -> IronResult<Response> {
