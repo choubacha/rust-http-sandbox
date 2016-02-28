@@ -6,18 +6,31 @@ use router::Router;
 
 #[derive(RustcDecodable, RustcEncodable)]
 struct Person {
-    id: i32,
+    id: Option<i32>,
     first_name: String,
     last_name: String,
 }
 
 pub fn create(req: &mut Request) -> IronResult<Response> {
     let mut buf: String = String::new();
+    let pool = req.get::<::persistent::Read<::middlewares::db_pool::DbPool>>().unwrap();
     match req.body.read_to_string(&mut buf) {
         Ok(_) => {
             match json::decode::<Person>(&buf) {
                 Ok(decoded) => {
-                    render(decoded)
+                    match pool.get() {
+                        Ok(conn) => {
+                            match conn.query("insert into http_sandbox.persons (first_name, last_name) values ($1, $2) returning id",
+                                             &[&decoded.first_name, &decoded.last_name]) {
+                                Ok(rows) => {
+                                    let row = rows.get(0);
+                                    render(Person { id: row.get("id"), .. decoded })
+                                },
+                                Err(err) => fail(format!("Could not query db: {:?}", err)),
+                            }
+                        },
+                        Err(err) => fail(format!("Could not get a db conn: {:?}", err)),
+                    }
                 },
                 Err(err) => fail(format!("Could not parse json: {:?}", err)),
             }
@@ -32,11 +45,11 @@ pub fn update(req: &mut Request) -> IronResult<Response> {
 
 pub fn show(req: &mut Request) -> IronResult<Response> {
     let person_param = super::extract_param(&req, "id");
-    let person_id = person_param.parse::<i32>().unwrap_or(0);
+    let person_id = person_param.parse::<i32>().unwrap_or(0i32);
     let pool = req.get::<::persistent::Read<::middlewares::db_pool::DbPool>>().unwrap();
     match pool.get() {
         Ok(conn) => {
-            match conn.query("select * from http_sandbox.persons where id = $1", &[&1]) {
+            match conn.query("select * from http_sandbox.persons where id = $1", &[&person_id]) {
                 Ok(rows) => {
                     if rows.len() == 0 {
                         Ok(Response::with((status::NotFound, "")))
