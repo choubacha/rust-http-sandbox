@@ -13,23 +13,13 @@ struct Person {
 
 pub fn create(req: &mut Request) -> IronResult<Response> {
     let mut buf: String = String::new();
-    let pool = req.get::<::persistent::Read<::middlewares::db_pool::DbPool>>().unwrap();
     match req.body.read_to_string(&mut buf) {
         Ok(_) => {
             match json::decode::<Person>(&buf) {
                 Ok(decoded) => {
-                    match pool.get() {
-                        Ok(conn) => {
-                            match conn.query("insert into http_sandbox.persons (first_name, last_name) values ($1, $2) returning id",
-                                             &[&decoded.first_name, &decoded.last_name]) {
-                                Ok(rows) => {
-                                    let row = rows.get(0);
-                                    render(Person { id: row.get("id"), .. decoded })
-                                },
-                                Err(err) => fail(format!("Could not query db: {:?}", err)),
-                            }
-                        },
-                        Err(err) => fail(format!("Could not get a db conn: {:?}", err)),
+                    match create_person(req, &decoded) {
+                        Ok(person) => render(person),
+                        Err(err) => fail(err)
                     }
                 },
                 Err(err) => fail(format!("Could not parse json: {:?}", err)),
@@ -39,6 +29,22 @@ pub fn create(req: &mut Request) -> IronResult<Response> {
     }
 }
 
+fn create_person(req: &mut Request, person: &Person) -> Result<Person, String> {
+    super::with_conn(req, |conn| -> Result<Person, String> {
+        match conn.query("insert into http_sandbox.persons (first_name, last_name) values ($1, $2) returning id",
+                         &[&person.first_name, &person.last_name]) {
+            Ok(rows) => {
+                Ok(Person {
+                    id: Some(rows.get(0).get("id")),
+                    first_name: person.first_name.clone(),
+                    last_name: person.last_name.clone()
+                })
+            },
+            Err(err) => Err(format!("Could not query db: {:?}", err)),
+        }
+    })
+}
+
 pub fn update(req: &mut Request) -> IronResult<Response> {
     Ok(Response::with((status::Ok, "update")))
 }
@@ -46,28 +52,36 @@ pub fn update(req: &mut Request) -> IronResult<Response> {
 pub fn show(req: &mut Request) -> IronResult<Response> {
     let person_param = super::extract_param(&req, "id");
     let person_id = person_param.parse::<i32>().unwrap_or(0i32);
-    let pool = req.get::<::persistent::Read<::middlewares::db_pool::DbPool>>().unwrap();
-    match pool.get() {
-        Ok(conn) => {
-            match conn.query("select * from http_sandbox.persons where id = $1", &[&person_id]) {
-                Ok(rows) => {
-                    if rows.len() == 0 {
-                        Ok(Response::with((status::NotFound, "")))
-                    } else {
-                        let row = rows.get(0);
-                        let person = Person {
-                            id: row.get("id"),
-                            first_name: row.get("first_name"),
-                            last_name: row.get("last_name")
-                        };
-                        render(person)
-                    }
-                },
-                Err(err) => fail(format!("Could not query db: {:?}", err)),
+    match get_person(req, person_id) {
+        Ok(person) => render(person),
+        Err(err) => {
+            if err == String::from("404") {
+                Ok(Response::with((status::NotFound, "Person not found")))
+            } else {
+                fail(err)
             }
-        },
-        Err(err) => fail(format!("Could not get a db conn: {:?}", err)),
+        }
     }
+}
+
+fn get_person(req: &mut Request, person_id: i32) -> Result<Person, String> {
+    super::with_conn(req, |conn| -> Result<Person, String> {
+        match conn.query("select * from http_sandbox.persons where id = $1", &[&person_id]) {
+            Ok(rows) => {
+                if rows.len() != 1 {
+                    Err(String::from("404"))
+                } else {
+                    let row = rows.get(0);
+                    Ok(Person {
+                        id: row.get("id"),
+                        first_name: row.get("first_name"),
+                        last_name: row.get("last_name")
+                    })
+                }
+            }
+            Err(err) => Err(format!("Could not query db: {:?}", err)),
+        }
+    })
 }
 
 pub fn index(req: &mut Request) -> IronResult<Response> {
