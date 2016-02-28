@@ -8,5 +8,6 @@ pub fn load_router() -> Router {
     router!(get   "hello/:name" => controllers::hello::hello,
             post  "json"        => controllers::json::parse,
             post  "persons"     => controllers::person::create,
+            get   "persons"     => controllers::person::index,
             get   "persons/:id" => controllers::person::show)
 }

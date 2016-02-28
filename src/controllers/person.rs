@@ -84,8 +84,32 @@ fn get_person(req: &mut Request, person_id: i32) -> Result<Person, String> {
     })
 }
 
+fn get_people(req: &mut Request) -> Result<Vec<Person>, String> {
+    super::with_conn(req, |conn| -> Result<Vec<Person>, String> {
+        match conn.query("select * from http_sandbox.persons", &[]) {
+            Ok(rows) => {
+                Ok(rows.iter().map(|row| {
+                        Person {
+                            id: row.get("id"),
+                            first_name: row.get("first_name"),
+                            last_name: row.get("last_name")
+                        }
+                    }).collect()
+                )
+            }
+            Err(err) => Err(format!("Could not query db: {:?}", err)),
+        }
+    })
+}
+
 pub fn index(req: &mut Request) -> IronResult<Response> {
-    Ok(Response::with((status::Ok, "index")))
+    match get_people(req) {
+        Ok(persons) => {
+            let body = json::encode(&persons).unwrap_or(String::new());
+            Ok(Response::with((status::Ok, body)))
+        },
+        Err(err) => fail(err)
+    }
 }
 
 pub fn delete(req: &mut Request) -> IronResult<Response> {
