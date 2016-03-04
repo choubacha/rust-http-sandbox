@@ -5,6 +5,7 @@ pub mod person;
 use iron::prelude::*;
 use router::Router;
 use middlewares::db_pool::{PostgresPooledConnection, DbPool};
+use std::io::Read;
 
 pub fn extract_param(req: &Request, param: &str) -> String {
     match req.extensions.get::<Router>() {
@@ -15,6 +16,14 @@ pub fn extract_param(req: &Request, param: &str) -> String {
             }
         },
         None => String::new()
+    }
+}
+
+pub fn read_body(req: &mut Request) -> Option<String> {
+    let mut buf: String = String::new();
+    match req.body.read_to_string(&mut buf) {
+        Ok(_)   => Some(buf),
+        Err(_)  => None
     }
 }
 
