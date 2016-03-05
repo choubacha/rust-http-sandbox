@@ -1,8 +1,8 @@
-use rustc_serialize::json;
 use iron::prelude::*;
 use iron::status;
-use router::Router;
 use middlewares::db_pool::PostgresPooledConnection;
+use postgres::rows::Row;
+use rustc_serialize::json;
 
 #[derive(RustcDecodable, RustcEncodable)]
 struct Person {
@@ -14,12 +14,36 @@ struct Person {
 struct PersonAccess {
     conn: PostgresPooledConnection
 }
-const CREATE_QUERY: &'static str = "insert into http_sandbox.persons
-                            (first_name, last_name) values ($1, $2)
-                            returning id";
+const CREATE_QUERY: &'static str =
+"   insert into http_sandbox.persons
+    (first_name, last_name) values ($1, $2)
+    returning id";
+
+const UPDATE_QUERY: &'static str =
+"   update http_sandbox.persons
+    set (first_name, last_name) = ($2, $3)
+    where id = $1;";
+
+const GET_QUERY: &'static str =
+    "select * from http_sandbox.persons where id = $1";
+
+const INDEX_QUERY: &'static str =
+    "select * from http_sandbox.persons";
+
+const DELETE_QUERY: &'static str =
+    "delete from http_sandbox.persons where id = $1";
+
 impl PersonAccess {
     fn new(conn: PostgresPooledConnection) -> PersonAccess {
         PersonAccess { conn: conn }
+    }
+
+    fn from_row(row: Row) -> Person {
+        Person {
+            id: row.get("id"),
+            first_name: row.get("first_name"),
+            last_name: row.get("last_name")
+        }
     }
 
     fn create(&self, person: &Person) -> Result<Person, String> {
@@ -34,85 +58,99 @@ impl PersonAccess {
             Err(err) => Err(format!("Could not query db: {:?}", err)),
         }
     }
+
+    fn update(&self, person: &Person) -> Result<(), String> {
+        match self.conn.execute(UPDATE_QUERY,
+                                &[
+                                    &person.id,
+                                    &person.first_name,
+                                    &person.last_name
+                                ])
+        {
+            Ok(_)   => Ok(()),
+            Err(err) => Err(format!("Could not query db: {:?}", err)),
+        }
+    }
+
+    fn delete(&self, person_id: i32) -> Result<(), String> {
+        match self.conn.execute(DELETE_QUERY, &[&person_id]) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(format!("Could not query db: {:?}", err)),
+        }
+    }
+
+    fn index(&self) -> Result<Vec<Person>, String> {
+        match self.conn.query(INDEX_QUERY, &[]) {
+            Ok(rows) => Ok(rows.iter().map(PersonAccess::from_row).collect()),
+            Err(err) => Err(format!("Could not query db: {:?}", err))
+        }
+    }
+
+    fn get(&self, person_id: i32) -> Result<Option<Person>, String> {
+        match self.conn.query(GET_QUERY, &[&person_id]) {
+            Ok(rows) => {
+                if rows.len() == 1 {
+                    Ok(Some(PersonAccess::from_row(rows.get(0))))
+                } else {
+                    Ok(None)
+                }
+            },
+            Err(err) => Err(format!("Could not query db: {:?}", err))
+        }
+    }
 }
 
 pub fn create(req: &mut Request) -> IronResult<Response> {
-    match super::read_body(req) {
-        Some(body) => {
-            match json::decode::<Person>(&body) {
-                Ok(decoded) => {
-                    match create_person(req, &decoded) {
-                        Ok(person) => render(person),
-                        Err(err) => fail(err)
-                    }
-                },
-                Err(err) => fail(format!("Could not parse json: {:?}", err)),
+    match super::parse_body::<Person>(req) {
+        Ok(person) => {
+            let result = super::with_conn(req, |conn| -> Result<Person, String> {
+                PersonAccess::new(conn).create(&person)
+            });
+            match result {
+                Ok(person) => render(person),
+                Err(err) => fail(err)
             }
         },
-        None => fail(String::from("Body is missing"))
+        Err(err) => fail(err)
     }
-}
-
-fn create_person(req: &mut Request, person: &Person) -> Result<Person, String> {
-    super::with_conn(req, |conn| -> Result<Person, String> {
-        PersonAccess::new(conn).create(person)
-    })
 }
 
 pub fn update(req: &mut Request) -> IronResult<Response> {
-    Ok(Response::with((status::Ok, "update")))
-}
-
-pub fn show(req: &mut Request) -> IronResult<Response> {
-    let person_param = super::extract_param(&req, "id");
-    let person_id = person_param.parse::<i32>().unwrap_or(0i32);
-    match get_person(req, person_id) {
-        Ok(None)            => Ok(Response::with((status::NotFound, "Person not found"))),
-        Ok(Some(person))    => render(person),
-        Err(err)            => fail(err)
+    let person_id = super::extract_or_param(&req, "id", 0i32);
+    match super::parse_body::<Person>(req) {
+        Ok(decoded) => {
+            let person = Person { id: Some(person_id), .. decoded };
+            let result = super::with_conn(req, |conn| -> Result<(), String> {
+                PersonAccess::new(conn).update(&person)
+            });
+            match result {
+                Ok(_) => render(person),
+                Err(err) => fail(err)
+            }
+        },
+        Err(err) => fail(err)
     }
 }
 
-fn get_person(req: &mut Request, person_id: i32) -> Result<Option<Person>, String> {
-    super::with_conn(req, |conn| -> Result<Option<Person>, String> {
-        match conn.query("select * from http_sandbox.persons where id = $1", &[&person_id]) {
-            Ok(rows) => {
-                if rows.len() == 1 {
-                    Ok(None)
-                } else {
-                    let row = rows.get(0);
-                    Ok(Some(Person {
-                        id: row.get("id"),
-                        first_name: row.get("first_name"),
-                        last_name: row.get("last_name")
-                    }))
-                }
-            },
-            Err(err) => Err(format!("Could not query db: {:?}", err)),
-        }
-    })
-}
+pub fn show(req: &mut Request) -> IronResult<Response> {
+    let person_id = super::extract_or_param(&req, "id", 0i32);
 
-fn get_people(req: &mut Request) -> Result<Vec<Person>, String> {
-    super::with_conn(req, |conn| -> Result<Vec<Person>, String> {
-        match conn.query("select * from http_sandbox.persons", &[]) {
-            Ok(rows) => {
-                Ok(rows.iter().map(|row| {
-                        Person {
-                            id: row.get("id"),
-                            first_name: row.get("first_name"),
-                            last_name: row.get("last_name")
-                        }
-                    }).collect()
-                )
-            }
-            Err(err) => Err(format!("Could not query db: {:?}", err)),
-        }
-    })
+    let result = super::with_conn(req, |conn| -> Result<Option<Person>, String> {
+        PersonAccess::new(conn).get(person_id)
+    });
+
+    match result {
+        Ok(None)         => Ok(Response::with((status::NotFound, "Person not found"))),
+        Ok(Some(person)) => render(person),
+        Err(err)         => fail(err)
+    }
 }
 
 pub fn index(req: &mut Request) -> IronResult<Response> {
-    match get_people(req) {
+    let result = super::with_conn(req, |conn| -> Result<Vec<Person>, String> {
+        PersonAccess::new(conn).index()
+    });
+    match result {
         Ok(persons) => {
             let body = json::encode(&persons).unwrap_or(String::new());
             Ok(Response::with((status::Ok, body)))
@@ -122,7 +160,16 @@ pub fn index(req: &mut Request) -> IronResult<Response> {
 }
 
 pub fn delete(req: &mut Request) -> IronResult<Response> {
-    Ok(Response::with((status::Ok, "delete")))
+    let person_id = super::extract_or_param(&req, "id", 0i32);
+
+    let result = super::with_conn(req, |conn| -> Result<(), String> {
+        PersonAccess::new(conn).delete(person_id)
+    });
+
+    match result {
+        Ok(_)   => Ok(Response::with((status::Ok, ""))),
+        Err(err)=> fail(err)
+    }
 }
 
 fn render(person: Person) -> IronResult<Response> {

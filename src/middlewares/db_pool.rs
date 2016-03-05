@@ -1,4 +1,3 @@
-use iron::middleware::{Chain};
 use iron::typemap::Key;
 use persistent::{Read};
 use r2d2::{Config, PooledConnection, Pool};

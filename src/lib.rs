@@ -1,4 +1,5 @@
 extern crate iron;
+extern crate core;
 
 #[macro_use(router)]
 extern crate router;
