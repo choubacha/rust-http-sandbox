@@ -1,13 +1,13 @@
-extern crate iron;
 extern crate core;
-
-#[macro_use(router)]
-extern crate router;
+extern crate iron;
 extern crate persistent;
-extern crate rustc_serialize;
 extern crate postgres;
 extern crate r2d2;
 extern crate r2d2_postgres;
+extern crate rustc_serialize;
+
+#[macro_use(router)]
+extern crate router;
 
 use iron::prelude::*;
 use router::Router;
