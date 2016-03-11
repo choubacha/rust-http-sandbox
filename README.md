@@ -45,6 +45,8 @@ create table http_sandbox.persons (
 
 run as: cargo run --release
 
+Run on a MBP 15"
+
 ### hello world route
 
 ```
