@@ -11,9 +11,9 @@ RUN apt-get install -y gcc
 
 # Install rust
 WORKDIR /tmp
-RUN wget https://static.rust-lang.org/dist/rust-1.6.0-x86_64-unknown-linux-gnu.tar.gz
-RUN tar xvzf rust-1.6.0-x86_64-unknown-linux-gnu.tar.gz
-WORKDIR rust-1.6.0-x86_64-unknown-linux-gnu
+RUN wget https://static.rust-lang.org/dist/rust-1.7.0-x86_64-unknown-linux-gnu.tar.gz
+RUN tar xvzf rust-1.7.0-x86_64-unknown-linux-gnu.tar.gz
+WORKDIR rust-1.7.0-x86_64-unknown-linux-gnu
 RUN sh install.sh
 
 # Do a simple build for pushing to hub
