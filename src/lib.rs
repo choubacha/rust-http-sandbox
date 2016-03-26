@@ -14,6 +14,8 @@ use router::Router;
 
 mod controllers;
 mod middlewares;
+mod models;
+mod access;
 pub mod routes;
 
 /// Command to start the server.
