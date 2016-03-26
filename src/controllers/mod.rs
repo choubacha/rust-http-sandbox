@@ -10,6 +10,7 @@ use rustc_serialize::Decodable;
 use rustc_serialize::json as json_lib;
 use std::io::Read;
 
+/// Pulls out a param from the URI
 pub fn extract_param(req: &Request, param: &str) -> String {
     match req.extensions.get::<Router>() {
         Some(router) => {
@@ -22,6 +23,8 @@ pub fn extract_param(req: &Request, param: &str) -> String {
     }
 }
 
+/// Grabs a param out of the request path, will parse the string into
+/// a parseable type. If it errors returns the default.
 pub fn extract_or_param<T>(req: &Request, param: &str, default: T) -> T
     where T: FromStr
 {
@@ -29,6 +32,8 @@ pub fn extract_or_param<T>(req: &Request, param: &str, default: T) -> T
     param.parse::<T>().unwrap_or(default)
 }
 
+/// Reading the body of a request means slurping up a stream, this
+/// reads that stream and returns it as a string.
 pub fn read_body(req: &mut Request) -> Option<String> {
     let mut buf: String = String::new();
     match req.body.read_to_string(&mut buf) {
@@ -37,6 +42,7 @@ pub fn read_body(req: &mut Request) -> Option<String> {
     }
 }
 
+/// Parses the body of the request into a type that can be decoded
 pub fn parse_body<T>(req: &mut Request) -> Result<T, String>
     where T: Decodable
 {
@@ -51,6 +57,9 @@ pub fn parse_body<T>(req: &mut Request) -> Result<T, String>
     }
 }
 
+/// Since the connection is passed through the request object, this method
+/// allows the controller to grab the connection and work with it
+/// within an enclosure.
 pub fn with_conn<F, T>(req: &mut Request, closure: F) -> Result<T, String>
     where F: Fn(PostgresPooledConnection) -> Result<T, String>
 {
