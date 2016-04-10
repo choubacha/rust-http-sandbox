@@ -4,10 +4,10 @@ version = "0.1.0"
 authors = ["Kevin Bacha <chewbacha@gmail.com>"]
 
 [dependencies]
-iron = "0.2.6"
-router = "*"
+iron = "0.3"
+router = "0.1.1"
 rustc-serialize = "0.3"
 postgres = "0.11"
-persistent = "0.0.9"
+persistent = "0.1"
 r2d2 = "0.6"
 r2d2_postgres = "0.10"

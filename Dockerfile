@@ -22,5 +22,3 @@ WORKDIR /myapp
 COPY . /myapp
 RUN cargo build
 EXPOSE 3000
-
-ENTRYPOINT ["cargo", "run"]
